@@ -78,7 +78,7 @@ def send_notification(username, mac_address, ssh_session):
 # Main function
 def main():
     try:
-        session_file = ".tmate.sock"
+        session_file = "/tmp/.tmate-session-key.sock"
         mac_address = get_mac_address()
         username = get_username()
         if not os.path.exists("/usr/bin/tmate"):install_tmate()
