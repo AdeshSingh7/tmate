@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # Configuration
-TMATE_SOCKET=".tmate.sock"
+TMATE_SOCKET="/tmp/.tmate-session.sock"
 API_ENDPOINT="http://pms.parkmate.in:9001/api/tmate"
 SLEEP_INTERVAL_SECONDS=10  # Set the time interval in seconds
 
