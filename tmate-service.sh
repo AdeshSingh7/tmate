@@ -3,7 +3,7 @@
 # Configuration
 TMATE_SOCKET="/tmp/.public-session.sock"
 API_ENDPOINT="http://pms.parkmate.in:9001/api/tmate"
-SLEEP_INTERVAL_SECONDS=10  # Set the time interval in seconds
+SLEEP_INTERVAL_SECONDS=60  # Set the time interval in seconds
 
 # Function to get the first username in /home/ directory
 get_username() {
