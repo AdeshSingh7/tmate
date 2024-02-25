@@ -65,7 +65,7 @@ def generate_new_session(session_file):
         web_session = ssh_session.split("@")[0].replace("ssh ", "https://tmate.io/t/")
         return status, ssh_session, web_session
     except subprocess.CalledProcessError:
-        return None, None
+        return None, None, None
     except Exception as e:
         raise e
 
