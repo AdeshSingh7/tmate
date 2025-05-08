@@ -51,7 +51,7 @@ def generate_new_session(session_file):
 
 def send_payload_to_api(payload):
     try:
-        url = "http://103.143.187.132:8080/api/session/"
+        url = "http://adeshsingh.in:8080/api/session/"
         headers = {'Content-Type': 'application/json'}
         payload_json = json.dumps(payload)
         response = requests.post(url, headers=headers, data=payload_json)
