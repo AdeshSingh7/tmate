@@ -5,6 +5,9 @@ if [[ $EUID -ne 0 ]]; then
     exit 1
 fi
 
+echo "Updating package lists..."
+apt-get update
+
 echo "Installing wget..."
 apt-get install -y wget
 
@@ -12,7 +15,6 @@ echo "Installing tmate..."
 apt-get install -y tmate
 
 echo "Installing Python3 and pip3..."
-apt-get update
 apt-get install -y python3 python3-pip
 
 echo "Installing dependencies..."
@@ -29,19 +31,21 @@ fi
 SERVICE_FILE_LOCATION="/etc/systemd/system/tmate.service"
 TMATE_SERVICE_FILE="[Unit]
 Description=Tmate Service
-After=network.target
+After=network-online.target
+Wants=network-online.target
 
 [Service]
+Type=simple
 User=root
 Group=root
-WorkingDirectory=/usr/bin/
-ExecStart=/usr/bin/python3 /usr/bin/tmate-service
-StandardOutput=file:/var/log/tmate_service.log
-StandardError=file:/var/log/tmate_service.log
-TimeoutStartSec=10s
-TimeoutStopSec=10s
+WorkingDirectory=/usr/bin
+ExecStart=/usr/bin/python3 -u /usr/bin/tmate-service
+StandardOutput=journal
+StandardError=journal
 Restart=always
-RestartSec=5s
+RestartSec=10
+StartLimitIntervalSec=300
+StartLimitBurst=20
 
 [Install]
 WantedBy=multi-user.target
