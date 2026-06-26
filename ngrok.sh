@@ -23,4 +23,18 @@ if ! command -v ngrok >/dev/null 2>&1; then
   apt-get install -y -qq ngrok
 fi
 
-ngrok "$PROTO" --authtoken "$TOKEN" "$HOST:$PORT"
+LOG="/tmp/ngrok-${PROTO}-${PORT}.log"
+nohup ngrok "$PROTO" --authtoken "$TOKEN" "$HOST:$PORT" > "$LOG" 2>&1 &
+PID="$!"
+
+for _ in $(seq 1 30); do
+  URL="$(curl -fsS http://127.0.0.1:4040/api/tunnels 2>/dev/null \
+    | grep -o '"public_url":"[^"]*"' \
+    | head -n1 \
+    | cut -d'"' -f4 || true)"
+  [ -n "$URL" ] && break
+  sleep 1
+done
+
+[ -n "${URL:-}" ] || { echo "ERROR: ngrok started pid=$PID but forwarding URL not ready. Log: $LOG"; exit 1; }
+echo "PID: $PID - Forwarding: $URL"
